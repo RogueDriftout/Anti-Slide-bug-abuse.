@@ -1,54 +1,93 @@
-#include a_samp// Anti-Slide bug include by RogueDrifter 2017-12-13
+/*Anti-Slide bug include by RogueDrifter 2017-12-13
+-=-=-=-=
+Callbacks:
+-=-=-=-=-=
+    OnPlayerSlide(playerid, weaponid, Float:speed);
+-=-=-=-==-=*/
+
+#if defined _rSBAIncluded_
+    #endinput
+#endif
+
+#define _rSBAIncluded_
+
+#include a_samp
  
-new slideremove[MAX_PLAYERS],slidecheck[MAX_PLAYERS];
-new bool:possibleslide[MAX_PLAYERS];
+enum SBA_DATA_INFO
+{
+    slidecheck,
+
+    bool:possibleslide
+};
+
+new 
+    SBA_Player[MAX_PLAYERS][SBA_DATA_INFO];
  
 forward RemoveSlideCheck(playerid);
 forward CheckPlayerSlide(playerid);
-forward OnPlayerConnectAS(playerid);
-forward OnPlayerDisconnectAS(playerid,reason);
-forward OnPlayerKeyStateChangeAS(playerid,newkeys,oldkeys);
+
+#if defined OnPlayerConnectAS
+    forward OnPlayerConnectAS(playerid);
+#endif
+
+#if defined OnPlayerDisconnectAS
+    forward OnPlayerDisconnectAS(playerid,reason);
+#endif
+
+#if defined OnPlayerKeyStateChangeAS
+    forward OnPlayerKeyStateChangeAS(playerid,newkeys,oldkeys);
+#endif
+
 public CheckPlayerSlide(playerid)
 {
-    if(GetPlayerOnFootSpeed(playerid) >15 && GetPlayerSurfingVehicleID(playerid) == INVALID_VEHICLE_ID && IsPAiming(playerid) && GetPlayerState(playerid) == PLAYER_STATE_ONFOOT && possibleslide[playerid] && 22<=GetPlayerWeapon(playerid)<=38)
+    new SBA_Wep = GetPlayerWeapon(playerid);
+    new Float:SBA_Speed = GetPlayerOnFootSpeed(playerid);
+    if(SBA_Speed > 15 && GetPlayerSurfingVehicleID(playerid) == INVALID_VEHICLE_ID && IsPAiming(playerid) && GetPlayerState(playerid) == PLAYER_STATE_ONFOOT && SBA_Player[playerid][possibleslide] && 22<=SBA_Wep<=38)
     {
-        CallLocalFunction("OnPlayerSlide", "d", playerid);
+        CallLocalFunction("OnPlayerSlide", "ddf", playerid, SBA_Wep, SBA_Speed);
         }
+
     return 1;
 }
+
 public RemoveSlideCheck(playerid)
 {
-    KillTimer(slideremove[playerid]);
-    possibleslide[playerid] =false;
+    SBA_Player[playerid][possibleslide] =false;
+
     return 1;
 }
+
 public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 {
     if( (newkeys & 128) && ( newkeys & 8)  && (newkeys & 2))
     {
-        possibleslide[playerid] =true;
-        KillTimer(slideremove[playerid]);
-        slideremove[playerid] = SetTimerEx("RemoveSlideCheck",2000,false,"i",playerid);
+        if(!SBA_Player[playerid][possibleslide]) SetTimerEx("RemoveSlideCheck",2000,false,"i",playerid);
+        SBA_Player[playerid][possibleslide] =true;
         }
+
     #if defined OnPlayerKeyStateChangeAS
     return OnPlayerKeyStateChangeAS(playerid, newkeys,oldkeys);
     #else
     return 1;
     #endif
 }
+
 public OnPlayerConnect(playerid)
 {
-    slidecheck[playerid] = SetTimerEx("CheckPlayerSlide",1000,true,"d",playerid);
+    SBA_Player[playerid][slidecheck] = SetTimerEx("CheckPlayerSlide",1000,true,"d",playerid);
+
     #if defined OnPlayerConnectAS
     return OnPlayerConnectAS(playerid);
     #else
     return 1;
     #endif
 }
+
 public OnPlayerDisconnect(playerid,reason)
 {
-    possibleslide[playerid]=false;
-    KillTimer(slidecheck[playerid]);
+    SBA_Player[playerid][possibleslide]=false;
+    KillTimer(SBA_Player[playerid][slidecheck]);
+
     #if defined OnPlayerDisconnectAS
     return  OnPlayerDisconnectAS(playerid,reason);
     #else
@@ -61,13 +100,16 @@ stock GetPlayerOnFootSpeed(playerid)
     new Float:ST[4];
     GetPlayerVelocity(playerid,ST[0],ST[1],ST[2]);
     ST[3] = floatsqroot(floatpower(floatabs(ST[0]), 2.0) + floatpower(floatabs(ST[1]), 2.0) + floatpower(floatabs(ST[2]), 2.0)) * 179.28625;
+    
     return floatround(ST[3]);
 }
+
 stock IsPAiming(playerid)
 {
     new playeranim = GetPlayerAnimationIndex(playerid);
     if (((playeranim >= 1160) && (playeranim <= 1163)) || (playeranim == 1167) || (playeranim == 1365) ||
     (playeranim == 1643) || (playeranim == 1453) || (playeranim == 220)) return 1;
+
     return 0;
 }
  
@@ -77,49 +119,52 @@ stock IsPAiming(playerid)
 #define _ALS_OnPlayerKeyStateChange
 #endif
  
-#define OnPlayerKeyStateChange OnPlayerKeyStateChangeAS
- 
 #if defined _ALS_OnPlayerConnect
   #undef OnPlayerConnect
 #else
 #define _ALS_OnPlayerConnect
 #endif
- 
-#define OnPlayerConnect OnPlayerConnectAS
- 
+
 #if defined _ALS_OnPlayerDisconnect
   #undef OnPlayerDisconnect
 #else
 #define _ALS_OnPlayerDisconnect
 #endif
- 
+
+#define OnPlayerKeyStateChange OnPlayerKeyStateChangeAS
+#define OnPlayerConnect OnPlayerConnectAS
 #define OnPlayerDisconnect OnPlayerDisconnectAS
- 
+
 #if defined OnPlayerSlide
 forward OnPlayerSlide(playerid);
 #else
 
-forward OnPlayerSlide(playerid);
-
 new playersliding[MAX_PLAYERS];
+
+forward OnPlayerSlide(playerid);
+forward CheckP(playerid);
 
 public OnPlayerSlide(playerid)
 {
     new pname[26],stringh[126];
     GetPlayerName(playerid, pname, sizeof(pname));
+
     if(playersliding[playerid] <=2) playersliding[playerid]++,
     format(stringh, sizeof(stringh), ".:Server Has frozen %s WARNING %d , Reason: SLIDE-BUGGING:.", pname,playersliding[playerid]);
+
     if(playersliding[playerid]==3) format(stringh, sizeof(stringh), ".:Server Has kicked %s , Reason: SLIDE-BUGGING :.", pname);
     SendClientMessageToAll(-1,stringh);
-    TogglePlayerControllable(playerid,0);//freezing because slap can bug and warnings are safe & ban is too brutal for a bug.
-    SetTimerEx("CheckP",500,false,"d",playerid);//timer for kick/unfreeze
+    TogglePlayerControllable(playerid,0);
+    SetTimerEx("CheckP",500,false,"d",playerid);
+
     return 1;
 }
-forward CheckP(playerid);
+
 public CheckP(playerid)
 {
-    if(playersliding[playerid] ==3) playersliding[playerid] =0, Kick(playerid);//reset & kick on 3rd warning
-    else TogglePlayerControllable(playerid,1);//unfreeze in the first 2 warnings.
+    if(playersliding[playerid] ==3) playersliding[playerid] =0, Kick(playerid);
+    else TogglePlayerControllable(playerid,1);
+
     return 1;
 }
 #endif
