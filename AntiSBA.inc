@@ -136,15 +136,15 @@ stock IsPAiming(playerid)
 #define OnPlayerDisconnect OnPlayerDisconnectAS
 
 #if defined OnPlayerSlide
-forward OnPlayerSlide(playerid);
+forward OnPlayerSlide(playerid, weaponid, Float:speed);
 #else
 
 new playersliding[MAX_PLAYERS];
 
-forward OnPlayerSlide(playerid);
+forward OnPlayerSlide(playerid, weaponid, Float:speed);
 forward CheckP(playerid);
 
-public OnPlayerSlide(playerid)
+public OnPlayerSlide(playerid, weaponid, Float:speed)
 {
     new pname[26],stringh[126];
     GetPlayerName(playerid, pname, sizeof(pname));
